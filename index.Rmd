@@ -1,0 +1,205 @@
+---
+title: "Fisheries Experiment"
+subtitle: "Data analysis"
+author: "Wanda Bodnar (Thames Estuary Partnership)"
+output: html_document
+date: "2023-10-29"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+library(vegan)
+library(ggplot2)
+library(ggstatsplot)
+library(ggpubr)
+library(mvabund)
+library(ggdendro)
+library(dendextend)
+library(dplyr)
+library(readxl)
+library(openxlsx)
+```
+
+
+## Overview
+
+### Number of individuals
+
+```{r, warning=FALSE, message=FALSE, fig.width=12, fig.height=8}
+
+#data = "https://github.com/ThamesEstuaryPartnership/fisheriesexperiment/blob/main/data.xlsx"
+#download.file(data, destfile = "data.xlsx")
+
+setwd("C:/Users/bodna/Documents/Work/Fisheries experiment")
+data <- read_excel("data.xlsx", sheet = "data")
+
+ggplot(data, aes(x = year, y = ind_n)) +
+  geom_col() +
+  scale_x_continuous(breaks = seq(from = 1973, to = 2022, by = 2)) +
+  scale_y_continuous(breaks = seq(from = 0, to = 900, by = 50)) +
+  labs(title = "", x = "Year", y = "Number of individuals (N)") +
+  theme_bw()
+```
+
+### Number of species
+
+```{r, warning=FALSE, message=FALSE, fig.width=12, fig.height=8}
+setwd("C:/Users/bodna/Documents/Work/Fisheries experiment")
+data <- read_excel("data.xlsx", sheet = "data")
+
+ggplot(data, aes(x = year, y = sp_n)) +
+  geom_col() +
+  scale_x_continuous(breaks = seq(from = 1973, to = 2022, by = 2)) +
+  scale_y_continuous(breaks = seq(from = 0, to = 10, by = 1)) +
+  labs(title = "", x = "Year", y = "Number of species (S)") +
+  theme_bw()
+```
+
+
+### Relative abundance
+
+```{r, warning=FALSE, message=FALSE, fig.width=12, fig.height=8}
+setwd("C:/Users/bodna/Documents/Work/Fisheries experiment")
+sp <- read_excel("data.xlsx", sheet = "sp")
+
+sp <- sp %>%
+  group_by(year, species) %>% 
+  summarise(sp_n = sum(length(unique(species))),
+            ind_n = sum(count)) 
+
+spRA <- sp %>%
+  group_by(year, species) %>% 
+  mutate(relAbundSp = round(ind_n / sum(ind_n), 2),
+         p = relAbundSp *100)
+
+spRA <- na.omit(spRA)
+
+ggplot(spRA, aes(x = year, y = relAbundSp, fill = species)) +
+  geom_bar(stat = "identity", position = "fill") +
+  scale_y_continuous(labels = scales::percent) +
+  scale_x_continuous(breaks = seq(from = 1973, to = 2022, by = 2)) +
+  labs(title = "", x = "Year", y = "Relative abundance") +
+  guides(fill = guide_legend(title = "Species name")) +
+  scale_fill_manual(values = c("#001427", "#708d81","#f4d58d", "#bf0603", "#5e503f",
+                               "#7678ed", "#f7b801", "#6fffe9", "#274c77", "#8f2d56",
+                               "#affc41", "#A24DF3","#347d45", "#4f0169","#fc4f94",
+                               "#174487", "#6554ef","#7678ed", "#739506", "#1a36a4",
+                               "#276088")) +
+  theme_bw()
+```
+
+## Data analysis
+### Number of individuals over time
+
+```{r, warning=FALSE, message=FALSE, fig.width=12, fig.height=8}
+setwd("C:/Users/bodna/Documents/Work/Fisheries experiment")
+data <- read_excel("data.xlsx", sheet = "data")
+
+p = ggplot(data, aes(x = year, y = ind_n)) +
+  geom_point() +
+  geom_smooth(method = "glm", formula = y ~ x) + #Generalised Linear Model
+  scale_x_continuous(breaks = seq(from = 1973, to = 2022, by = 2)) +
+  scale_y_continuous(breaks = seq(from = 0, to = 900, by = 50)) +
+  labs(title = "", x = "Year", y = "Number of individuals (N)")
+
+p +
+  stat_cor(
+    aes(label = paste(..rr.label.., p.label, sep = "~`,`~")),
+    label.y = 900)
+
+ggplot(data, aes(x = year, y = ind_n)) +
+  geom_point() +
+  geom_smooth(method = loess, formula = y ~ x) + #LOESS (locally estimated scatterplot smoothing)
+  scale_x_continuous(breaks = seq(from = 1973, to = 2022, by = 2)) +
+  scale_y_continuous(breaks = seq(from = 0, to = 900, by = 50)) +
+  labs(title = "", x = "Year", y = "Number of individuals (N)")
+```
+
+
+### Number of species over time
+
+```{r, warning=FALSE, message=FALSE, fig.width=12, fig.height=8}
+setwd("C:/Users/bodna/Documents/Work/Fisheries experiment")
+data <- read.csv("data.csv")
+
+p = ggplot(data, aes(x = year, y = sp_n)) +
+  geom_point() +
+  geom_smooth(method = "glm", formula = y ~ x) + #Generalised Linear Model
+  scale_x_continuous(breaks = seq(from = 1973, to = 2022, by = 2)) +
+  scale_y_continuous(breaks = seq(from = 0, to = 10, by = 1)) +
+  labs(title = "", x = "Year", y = "Number of species (S)")
+
+p +
+  stat_cor(
+    aes(label = paste(rr.label, ..p.label.., sep = "~`,`~")),
+    label.y = 12)
+
+ggplot(data, aes(x = year, y = sp_n)) +
+  geom_point() +
+  geom_smooth(method = loess, formula = y ~ x) + #LOESS (locally estimated scatterplot smoothing)
+  scale_x_continuous(breaks = seq(from = 1973, to = 2022, by = 2)) +
+  scale_y_continuous(breaks = seq(from = 0, to = 10, by = 1)) +
+  labs(title = "", x = "Year", y = "Number of species (S)")
+```
+
+
+### Shannon-Weiner diversity over time
+
+```{r, warning=FALSE, message=FALSE, fig.width=12, fig.height=8}
+setwd("C:/Users/bodna/Documents/Work/Fisheries experiment")
+data <- read.csv("data.csv")
+
+p = ggplot(data, aes(x = year, y = H)) +
+  geom_point() +
+  geom_smooth(method = "glm", formula = y ~ x) + #Generalised Linear Model
+  scale_x_continuous(breaks = seq(from = 1973, to = 2022, by = 2)) +
+  scale_y_continuous(breaks = seq(from = 0, to = 1, by = 0.1)) +
+  labs(title = "", x = "Year", y = "Shannon-Weiner diversity index (H')")
+
+p +
+  stat_cor(
+    aes(label = paste(rr.label, ..p.label.., sep = "~`,`~")),
+    label.y = 1.1)
+
+ggplot(data, aes(x = year, y = H)) +
+  geom_point() +
+  geom_smooth(method = loess, formula = y ~ x) + #LOESS (locally estimated scatterplot smoothing)
+  scale_x_continuous(breaks = seq(from = 1973, to = 2022, by = 2)) +
+  scale_y_continuous(breaks = seq(from = 0, to = 1, by = 0.1)) +
+  labs(title = "", x = "Year", y = "Shannon-Weiner diversity index (H')")
+```
+
+
+### Species composition over time
+
+```{r, warning=FALSE, message=FALSE, fig.width=12, fig.height=8}
+div <- read.csv("div.csv")
+div.bc = vegdist(div, method = "bray")*100
+div.hc = hclust(div.bc, 'average')
+dhc <- as.dendrogram(div.hc)
+labels(dhc) = seq(from = 1973, to = 2022, by = 1)
+data <- dendro_data(dhc, type = "triangle")
+
+ggplot(segment(data)) + 
+  geom_segment(aes(x = x, y = y, xend = xend, yend = yend)) +
+  labs(title = "Abundance-based similarity between the years", x = "Site", y = "Similarity (%)") +
+  geom_text(data = data$labels, 
+            aes(x = x, y = y, label = label), 
+            size = 4, hjust = 1.1, angle = 90) +
+  scale_y_continuous(limits = c(-1.2, 15),
+                     breaks = c(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15),
+                     labels = c("0" = "100", "1" = "99", 
+                                "2" = "98", "3" = "97", 
+                                "4" = "96", "5" = "95",
+                                "6" = "94", "7" = "93",
+                                "8" = "92", "9" = "91",
+                                "10" = "90", 
+                                "11" = "89", "12" = "88", 
+                                "13" = "87", "14" = "86", 
+                                "15" = "85")) +
+  scale_x_discrete(labels = function(x) 
+    stringr::str_wrap(x, width = 15))+
+  theme_bw() +
+  theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+```
+
