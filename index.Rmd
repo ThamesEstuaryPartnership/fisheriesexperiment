@@ -18,6 +18,7 @@ library(dendextend)
 library(dplyr)
 library(readxl)
 library(openxlsx)
+library(mvabund)
 ```
 
 
@@ -68,7 +69,7 @@ sp <- sp %>%
             ind_n = sum(count)) 
 
 spRA <- sp %>%
-  group_by(year, species) %>% 
+  group_by(year) %>% 
   mutate(relAbundSp = round(ind_n / sum(ind_n), 2),
          p = relAbundSp *100)
 
@@ -84,7 +85,7 @@ ggplot(spRA, aes(x = year, y = relAbundSp, fill = species)) +
                                "#7678ed", "#f7b801", "#6fffe9", "#274c77", "#8f2d56",
                                "#affc41", "#A24DF3","#347d45", "#4f0169","#fc4f94",
                                "#174487", "#6554ef","#7678ed", "#739506", "#1a36a4",
-                               "#276088")) +
+                               "#276088", "#008F39", "#DC9D00","#F54021", "#A18594", "#8B8C7A")) +
   theme_bw()
 ```
 
@@ -173,7 +174,9 @@ ggplot(data, aes(x = year, y = H)) +
 ### Species composition over time
 
 ```{r, warning=FALSE, message=FALSE, fig.width=12, fig.height=8}
-div <- read.csv("div.csv")
+setwd("C:/Users/bodna/Documents/Work/Fisheries experiment")
+div <- read_excel("data.xlsx", sheet = "RA")
+
 div.bc = vegdist(div, method = "bray")*100
 div.hc = hclust(div.bc, 'average')
 dhc <- as.dendrogram(div.hc)
@@ -182,24 +185,23 @@ data <- dendro_data(dhc, type = "triangle")
 
 ggplot(segment(data)) + 
   geom_segment(aes(x = x, y = y, xend = xend, yend = yend)) +
-  labs(title = "Abundance-based similarity between the years", x = "Site", y = "Similarity (%)") +
+  labs(title = "Abundance-based similarity between years", x = "Years", y = "Similarity (%)") +
   geom_text(data = data$labels, 
             aes(x = x, y = y, label = label), 
             size = 4, hjust = 1.1, angle = 90) +
-  scale_y_continuous(limits = c(-1.2, 15),
-                     breaks = c(0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15),
+  scale_y_continuous(limits = c(-0.5, 5),
+                     breaks = c(0, 1, 2, 3, 4, 5),
                      labels = c("0" = "100", "1" = "99", 
                                 "2" = "98", "3" = "97", 
-                                "4" = "96", "5" = "95",
-                                "6" = "94", "7" = "93",
-                                "8" = "92", "9" = "91",
-                                "10" = "90", 
-                                "11" = "89", "12" = "88", 
-                                "13" = "87", "14" = "86", 
-                                "15" = "85")) +
+                                "4" = "96", "5" = "95")) +
   scale_x_discrete(labels = function(x) 
     stringr::str_wrap(x, width = 15))+
   theme_bw() +
   theme(panel.grid.major = element_blank(), panel.grid.minor = element_blank())
+
+spcomp_m <- mvabund(div[, 2:27])
+mod <- manyglm(spcomp_m ~ div$year, family = "negative_binomial")
+anova(mod, p.uni = "adjusted")
 ```
+
 
